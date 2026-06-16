@@ -25,6 +25,15 @@ def test_crear_bank_movement():
     assert m.bank_movement_id is not None
 
 
+def test_crear_collection_normaliza_mes_cobro_al_dia_1():
+    c = services.crear_collection(
+        contract_id=123, mes_cobro=datetime.date(2026, 4, 17),
+        monto_cobro=Decimal("2"), moneda=Moneda.UF,
+    )
+    c.refresh_from_db()
+    assert c.mes_cobro.day == 1
+
+
 from tasks import selectors
 from tasks.exceptions import AbonoExcedeFaltante, SaldoInsuficiente
 from tasks.models import Abono

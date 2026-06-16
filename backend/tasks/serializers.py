@@ -41,6 +41,10 @@ class CollectionSerializer(serializers.ModelSerializer):
 
 
 class CollectionCreateSerializer(serializers.ModelSerializer):
+    monto_cobro = serializers.DecimalField(
+        max_digits=14, decimal_places=2, min_value=Decimal("0.01")
+    )
+
     class Meta:
         model = Collection
         fields = ["contract_id", "mes_cobro", "monto_cobro", "moneda"]
@@ -68,6 +72,10 @@ class BankMovementSerializer(serializers.ModelSerializer):
 
 
 class BankMovementCreateSerializer(serializers.ModelSerializer):
+    monto = serializers.DecimalField(
+        max_digits=14, decimal_places=2, min_value=Decimal("0.01")
+    )
+
     class Meta:
         model = BankMovement
         fields = ["fecha", "glosa", "monto", "pagador"]

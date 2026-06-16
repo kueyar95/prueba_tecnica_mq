@@ -23,6 +23,11 @@ class AbonoExcedeFaltante(DomainError):
     status_code = 409
 
 
+class CobroNoEncontrado(DomainError):
+    code = "cobro_no_encontrado"
+    status_code = 404
+
+
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_default_handler
 

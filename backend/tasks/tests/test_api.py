@@ -66,3 +66,35 @@ def test_abonos_sobre_movimiento_inexistente_devuelve_404(api):
         "asignaciones": [{"collection_id": c.pk, "monto": "50000"}],
     }, format="json")
     assert r.status_code == 404
+
+
+def test_crear_collection_monto_no_positivo_devuelve_400(api):
+    r = api.post("/api/collections/", {
+        "contract_id": 123, "mes_cobro": "2026-04-01",
+        "monto_cobro": "-5", "moneda": "UF",
+    }, format="json")
+    assert r.status_code == 400
+
+
+def test_crear_bank_movement_monto_no_positivo_devuelve_400(api):
+    r = api.post("/api/bank-movements/", {
+        "fecha": "2026-04-02", "monto": "-5",
+    }, format="json")
+    assert r.status_code == 400
+
+
+def test_crear_bank_movement_solo_fecha_y_monto_devuelve_201(api):
+    r = api.post("/api/bank-movements/", {
+        "fecha": "2026-04-02", "monto": "80000",
+    }, format="json")
+    assert r.status_code == 201
+
+
+def test_abonos_sobre_cobro_inexistente_devuelve_404(api):
+    m = services.crear_bank_movement(fecha=datetime.date(2026, 4, 2),
+                                     monto=Decimal("80000"))
+    r = api.post(f"/api/bank-movements/{m.pk}/abonos/", {
+        "asignaciones": [{"collection_id": 999999, "monto": "50000"}],
+    }, format="json")
+    assert r.status_code == 404
+    assert r.data["error"]["code"] == "cobro_no_encontrado"

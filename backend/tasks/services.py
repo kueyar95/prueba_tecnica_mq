@@ -4,20 +4,26 @@ from decimal import Decimal
 from django.db import transaction
 
 from . import selectors
-from .exceptions import AbonoExcedeFaltante, MontoInvalido, SaldoInsuficiente
+from .exceptions import (
+    AbonoExcedeFaltante,
+    CobroNoEncontrado,
+    MontoInvalido,
+    SaldoInsuficiente,
+)
 from .models import Abono, BankMovement, Collection, Devolucion
 
 
 def crear_collection(*, contract_id: int, mes_cobro: datetime.date,
                      monto_cobro: Decimal, moneda: str) -> Collection:
+    mes_cobro = mes_cobro.replace(day=1)
     return Collection.objects.create(
         contract_id=contract_id, mes_cobro=mes_cobro,
         monto_cobro=monto_cobro, moneda=moneda,
     )
 
 
-def crear_bank_movement(*, fecha: datetime.date, glosa: str,
-                        monto: Decimal, pagador: str) -> BankMovement:
+def crear_bank_movement(*, fecha: datetime.date, glosa: str = "",
+                        monto: Decimal, pagador: str = "") -> BankMovement:
     return BankMovement.objects.create(
         fecha=fecha, glosa=glosa, monto=monto, pagador=pagador,
     )
@@ -43,6 +49,13 @@ def reconciliar(*, bank_movement_id: int, asignaciones: list[dict]) -> list[Abon
             c.pk: c
             for c in Collection.objects.select_for_update().filter(pk__in=list(por_cobro))
         }
+
+        faltan = set(por_cobro) - set(cobros)
+        if faltan:
+            raise CobroNoEncontrado(
+                "Uno o más cobros no existen.",
+                {"collection_ids": sorted(faltan)},
+            )
 
         total = Decimal("0")
         nuevos: list[Abono] = []
