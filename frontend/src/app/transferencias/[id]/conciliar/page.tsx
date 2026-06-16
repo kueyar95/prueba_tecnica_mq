@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 
 import { api, ApiClientError } from "@/lib/api"
-import type { BankMovementDetail, Collection, Paginated } from "@/lib/types"
+import type { BankMovementDetail, Collection } from "@/lib/types"
 
 import ConciliarForm from "@/components/ConciliarForm"
 
@@ -22,11 +22,12 @@ export default async function ConciliarPage({ params }: Props): Promise<JSX.Elem
 
   // Cobros con saldo por cubrir: pendientes + parciales. La API no expone un
   // único filtro para ambos, así que se piden por separado y se combinan.
+  // getAll recorre TODAS las páginas para no omitir ningún cobro pagable.
   const [pendientes, parciales] = await Promise.all([
-    api.get<Paginated<Collection>>("/collections/?estado=pendiente"),
-    api.get<Paginated<Collection>>("/collections/?estado=parcial"),
+    api.getAll<Collection>("/collections/?estado=pendiente"),
+    api.getAll<Collection>("/collections/?estado=parcial"),
   ])
-  const cobros: Collection[] = [...pendientes.results, ...parciales.results]
+  const cobros: Collection[] = [...pendientes, ...parciales]
 
   return <ConciliarForm movement={movement} cobros={cobros} />
 }
