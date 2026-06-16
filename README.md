@@ -149,3 +149,84 @@ de su pago (qué transferencias, cuánto cada una).
   explícito, y las preguntas que le harías al equipo de producto antes de llevar esto
    a producción.
 
+-------------------------------------------------------------------------------------------------------------------
+
+## Entrega
+
+Resumen de la solución implementada.
+
+## Cómo correr
+
+```bash
+docker compose up -d                                   # PostgreSQL
+cd backend && cp .env.example .env && pdm install && pdm migrate && pdm dev   # API :8000
+cd frontend && cp .env.example .env.local && yarn install && yarn dev         # UI :3000
+cd backend && pdm test                                 # 38 tests
+```
+
+UI en `http://localhost:3000` (redirige a `/cobros`).
+
+## Rutas
+
+### API
+
+- `GET/POST /api/collections/` y `GET /api/collections/{id}/`
+- `GET/POST /api/bank-movements/` y `GET /api/bank-movements/{id}/`
+- `POST /api/bank-movements/{id}/abonos/` para conciliar (una transferencia a uno o más cobros)
+- `POST /api/bank-movements/{id}/devoluciones/` para devolver el excedente
+
+### UI
+
+`/cobros`, `/cobros/{id}`, `/transferencias`, `/transferencias/{id}`, `/transferencias/{id}/conciliar`. `/` y `/tasks` redirigen a `/cobros`.
+
+## Funcionalidades
+
+### Implementadas
+
+Backend (Django + DRF, 38 tests):
+
+- Crear y listar cobros y transferencias, con el detalle de cada uno.
+- Conciliar: asociar una transferencia a uno o más cobros con montos parciales, dentro de una transacción atómica que valida que no se sobregire el movimiento y que cada abono no supere lo que falta del cobro.
+- Devolver el excedente al pagador.
+- Histórico de cobros con estado pendiente, parcial o pagado (filtrable) y, para cada cobro con pagos, el detalle de qué transferencias lo pagaron y con cuánto.
+- Conversión de UF fija ($40.000) y cálculo de lo pagado en la moneda original del cobro, comparando en CLP para no perder pesos por redondeo.
+- Dinero en `Decimal`, respuestas de error con formato uniforme, paginación y 404 limpios.
+
+Frontend (Next.js 14, App Router):
+
+- Histórico de cobros con filtro por estado y paginación.
+- Crear cobro y crear transferencia.
+- Detalle de cobro con el desglose de qué transferencias lo pagaron.
+- Listado de transferencias con su saldo disponible, y detalle con sus abonos y devoluciones.
+- Flujo de conciliación con balance en vivo que valida lo que falta y el saldo disponible.
+- Devolución del excedente.
+- Estados de carga y error por ruta. CLP como moneda principal y UF como referencia.
+
+### Pendientes
+
+- Aplicar automáticamente el saldo a favor a cobros futuros del contrato.
+- UF variable por fecha (hoy es fija).
+- Devolución completa con cliente, cuentas bancarias y ejecución real.
+- Reversar o corregir conciliaciones con auditoría.
+- Autenticación y roles (hoy `AllowAny`).
+- Calcular estado y saldo en SQL para grandes volúmenes (hoy se hace en Python).
+- Tests de frontend.
+
+## Flujo de datos
+
+`Frontend (Next.js) -> API (Django) -> PostgreSQL -> Frontend`
+
+- Lectura: una página (Server Component) hace `fetch` a la API en el servidor usando `NEXT_PUBLIC_API_URL`; DRF lee de PostgreSQL y serializa incluyendo los campos derivados (estado, lo que falta, saldo); el Server Component renderiza y los Client Components con styled-components dan la interactividad.
+- Escritura (por ejemplo, conciliar): el formulario invoca una Server Action que hace `POST` a la API; el servicio de Django ejecuta la operación en una transacción atómica (bloquea las filas con `select_for_update`, valida y crea los abonos) y responde; la Server Action revalida la ruta y la UI se refresca.
+- Errores: el backend responde con un objeto de error con código y mensaje; el cliente lo convierte en una excepción y las acciones lo devuelven para mostrarlo en pantalla; un recurso inexistente cae en `notFound()` y cada ruta tiene su `loading` y su `error`.
+
+## Supuestos
+
+- El saldo a favor es el saldo disponible de la transferencia (su monto menos lo abonado y lo devuelto) y se puede aplicar a cualquier cobro, así el excedente no se pierde ni bloquea nada. Al ser un valor derivado no hay un crédito guardado aparte que se pueda desincronizar.
+- Guardo el pagador en la transferencia para poder devolver un sobrepago a quien corresponde. No monté una entidad Cliente con cuentas bancarias porque para esta prueba basta con saber a quién se le devuelve.
+- Trabajo y muestro todo en CLP. Para decidir si un cobro en UF está pagado multiplico su monto por la UF fija y comparo en CLP, en vez de dividir el CLP a UF, porque dividir arrastra redondeos y multiplicando la comparación es exacta.
+- Todo el dinero va en `Decimal` y nunca en `float`, porque es plata de terceros y `float` introduce errores de representación.
+- Los estados de un cobro son pendiente, parcial y pagado. El enunciado solo pide distinguir pendiente de pagado, pero agregué parcial porque saber cuánto falta es útil en el histórico y sale del mismo cálculo.
+- El mes de cobro se normaliza al día 1, porque el cobro es mensual y fijar el día evita ambigüedades y duplicados al comparar meses entre contratos.
+- Mantuve el setup base del repo, como pide el enunciado, y como el diseño de rutas es libre expongo rutas por dominio (`/api/collections/`, `/api/bank-movements/`) en lugar del placeholder `tasks`, que era de otro dominio.
+- Dejé la autenticación fuera de alcance (`AllowAny`) porque así viene el scaffold y el enunciado no la pide. En producción iría con autorización por rol.
