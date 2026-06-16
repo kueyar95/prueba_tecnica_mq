@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { ReactNode } from "react"
 
+import { karbon, roboto } from "@/lib/fonts"
 import StyledComponentsRegistry from "@/lib/styled-components-registry"
 
 type Props = {
@@ -8,13 +9,13 @@ type Props = {
 }
 
 export const metadata: Metadata = {
-  title: "Prueba Tecnica Junior",
+  title: "Conciliación de arriendo — MQ",
   description: "Starter frontend para prueba tecnica junior fullstack",
 }
 
 export default function RootLayout({ children }: Props): ReactNode {
   return (
-    <html lang="es">
+    <html lang="es" className={`${karbon.variable} ${roboto.variable}`}>
       <body>
         <StyledComponentsRegistry>{children}</StyledComponentsRegistry>
       </body>
