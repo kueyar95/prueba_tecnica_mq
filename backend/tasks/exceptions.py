@@ -21,3 +21,16 @@ class SaldoInsuficiente(DomainError):
 class AbonoExcedeFaltante(DomainError):
     code = "abono_excede_faltante"
     status_code = 409
+
+
+from rest_framework.response import Response
+from rest_framework.views import exception_handler as drf_default_handler
+
+
+def drf_exception_handler(exc, context):
+    if isinstance(exc, DomainError):
+        return Response(
+            {"error": {"code": exc.code, "message": exc.message, "details": exc.details}},
+            status=exc.status_code,
+        )
+    return drf_default_handler(exc, context)
